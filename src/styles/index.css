@@ -6,6 +6,21 @@
 @import "tailwindcss";
 @import "./theme.css";
 
+/* Class-based dark mode.
+ *
+ * Without this, Tailwind v4 compiles every `dark:` utility into a
+ * `@media (prefers-color-scheme: dark)` block — so dark styles activate
+ * from the OS theme setting rather than app state. Consumers that want
+ * to control dark mode programmatically (e.g. a theme toggle that adds
+ * `<html class="dark">`) can't override the OS preference.
+ *
+ * This variant makes `dark:` resolve to a `.dark` class selector
+ * instead. Apps that want media-query behavior can opt back in via
+ * their own `@custom-variant dark (@media (prefers-color-scheme: dark));`
+ * override.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Content sources for class detection */
 @source "../components/**/*.{tsx,ts}";
 @source inline("bg-sky-100 bg-sky-50 bg-sky-100/50 bg-amber-100 bg-amber-50 bg-amber-100/50 bg-emerald-100 bg-emerald-50 bg-emerald-100/50 bg-pink-100 bg-pink-50 bg-pink-100/50");
