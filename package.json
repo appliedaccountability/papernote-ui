@@ -1,6 +1,6 @@
 {
   "name": "@papernote/ui",
-  "version": "2.0.5",
+  "version": "2.1.0",
   "type": "module",
   "description": "A modern React component library with a paper notebook aesthetic - minimal, professional, and expressive",
   "main": "dist/index.js",
@@ -53,6 +53,7 @@
     "@storybook/addon-a11y": "^10.0.8",
     "@storybook/addon-docs": "^10.0.8",
     "@storybook/react-vite": "^10.0.8",
+    "@tanstack/react-virtual": "^3.10.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -110,6 +111,7 @@
     "url": "https://github.com/kwhittenberger/papernote-ui/issues"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.10.0",
     "canvas-confetti": "^1.9.4",
     "react-spreadsheet": "^0.10.1",
     "xlsx": "^0.18.5"

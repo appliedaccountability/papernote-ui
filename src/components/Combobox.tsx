@@ -5,8 +5,10 @@ import React, {
   forwardRef,
   useImperativeHandle,
   useId,
+  useMemo,
 } from "react";
 import { Check, ChevronDown, Search, X, Plus } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 export interface ComboboxHandle {
   focus: () => void;
@@ -59,6 +61,20 @@ export interface ComboboxProps {
   className?: string;
   /** Size variant */
   size?: "sm" | "md" | "lg";
+  /**
+   * Render the dropdown through a windowing virtualizer. Use when the option
+   * count can exceed a few hundred entries (e.g. server-driven typeahead over
+   * Accounts / Contacts in a CRM dataset). Off by default so small dropdowns
+   * keep their current DOM shape. Backed by `@tanstack/react-virtual`.
+   */
+  virtualized?: boolean;
+  /**
+   * Estimated row height in pixels, used by the virtualizer to size the
+   * scroll container. Only applies when `virtualized={true}`. Defaults to
+   * 36px which matches the current `text-sm py-2 px-3` row layout. Lift
+   * this if you customize the row template via CSS.
+   */
+  itemHeight?: number;
 }
 
 /**
@@ -103,6 +119,8 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
       disabled = false,
       className = "",
       size = "md",
+      virtualized = false,
+      itemHeight = 36,
     },
     ref,
   ) => {
@@ -112,6 +130,7 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Generate unique IDs for ARIA
     const labelId = useId();
@@ -126,10 +145,28 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
       close: () => setIsOpen(false),
     }));
 
-    // Filter options based on search query
-    const filteredOptions = options.filter((option) =>
-      option.label.toLowerCase().includes(searchQuery.toLowerCase()),
+    // Filter options based on search query.
+    // Memoized so the virtualizer's count input is stable across re-renders
+    // when nothing relevant changed — TanStack Virtual remounts its internal
+    // index map otherwise, breaking scroll position.
+    const filteredOptions = useMemo(
+      () =>
+        options.filter((option) =>
+          option.label.toLowerCase().includes(searchQuery.toLowerCase()),
+        ),
+      [options, searchQuery],
     );
+
+    // Virtualizer — only constructed when `virtualized` is on. The hook
+    // itself is always called (Rules of Hooks), but `count: 0` is a no-op
+    // and `useVirtualizer` doesn't read `getScrollElement` until items
+    // exist, so the non-virtualized path pays only the hook call overhead.
+    const rowVirtualizer = useVirtualizer({
+      count: virtualized ? filteredOptions.length : 0,
+      getScrollElement: () => scrollContainerRef.current,
+      estimateSize: () => itemHeight,
+      overscan: 8,
+    });
 
     // Get display value
     const selectedOption = options.find((opt) => opt.value === value);
@@ -158,9 +195,18 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
       };
     }, [isOpen]);
 
-    // Scroll highlighted option into view
+    // Scroll highlighted option into view. Two paths:
+    //  - virtualized: ask the virtualizer to scroll the row into view; the
+    //    DOM child at `[highlightedIndex]` may not exist yet.
+    //  - non-virtualized: walk the rendered <li> children directly.
     useEffect(() => {
-      if (isOpen && listRef.current) {
+      if (!isOpen) return;
+      if (virtualized) {
+        if (filteredOptions.length === 0) return;
+        rowVirtualizer.scrollToIndex(highlightedIndex, { align: "auto" });
+        return;
+      }
+      if (listRef.current) {
         const highlightedElement = listRef.current.children[
           highlightedIndex
         ] as HTMLElement;
@@ -171,7 +217,13 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
           });
         }
       }
-    }, [highlightedIndex, isOpen]);
+    }, [
+      highlightedIndex,
+      isOpen,
+      virtualized,
+      filteredOptions.length,
+      rowVirtualizer,
+    ]);
 
     // Handle search input change
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -423,6 +475,7 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
         {/* Dropdown */}
         {isOpen && (
           <div
+            ref={scrollContainerRef}
             className="absolute z-50 mt-1 w-full bg-white rounded-md shadow-lg border border-paper-200 max-h-60 overflow-auto"
             role="listbox"
             id={listboxId}
@@ -444,6 +497,88 @@ const Combobox = forwardRef<ComboboxHandle, ComboboxProps>(
               >
                 No options found
               </div>
+            ) : virtualized ? (
+              <>
+                <ul
+                  ref={listRef}
+                  style={{
+                    height: `${rowVirtualizer.getTotalSize()}px`,
+                    position: "relative",
+                  }}
+                >
+                  {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                    const option = filteredOptions[virtualRow.index];
+                    const Icon = option.icon;
+                    const isSelected = option.value === value;
+                    const isHighlighted = virtualRow.index === highlightedIndex;
+
+                    return (
+                      <li
+                        key={option.value}
+                        id={`option-${virtualRow.index}`}
+                        role="option"
+                        aria-selected={isSelected}
+                        aria-disabled={option.disabled}
+                        onClick={() => handleSelectOption(option)}
+                        onMouseEnter={() =>
+                          setHighlightedIndex(virtualRow.index)
+                        }
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                        className={`
+                        px-3 py-2 cursor-pointer flex items-center justify-between gap-2
+                        ${option.disabled ? "opacity-50 cursor-not-allowed" : ""}
+                        ${isHighlighted ? "bg-primary-50" : ""}
+                        ${isSelected ? "bg-primary-100 font-medium" : ""}
+                        hover:bg-primary-50
+                      `}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {Icon && (
+                            <Icon
+                              className={`${iconSizeClasses[size]} flex-shrink-0 text-ink-600`}
+                            />
+                          )}
+                          <span className="truncate text-sm text-ink-900">
+                            {option.label}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <Check
+                            className={`${iconSizeClasses[size]} flex-shrink-0 text-primary-600`}
+                          />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {/* Create option — sits outside the virtualized window so it
+                    stays visible at the bottom of the dropdown regardless of
+                    scroll position. */}
+                {canCreateOption && (
+                  <ul>
+                    <li
+                      role="option"
+                      onClick={handleCreateOption}
+                      className="px-3 py-2 cursor-pointer flex items-center gap-2 border-t border-paper-200 hover:bg-primary-50 bg-success-50"
+                    >
+                      <Plus
+                        className={`${iconSizeClasses[size]} text-success-600`}
+                      />
+                      <span className="text-sm text-success-700 font-medium">
+                        Create "{searchQuery}"
+                      </span>
+                    </li>
+                  </ul>
+                )}
+              </>
             ) : (
               <ul ref={listRef}>
                 {/* Filtered options */}

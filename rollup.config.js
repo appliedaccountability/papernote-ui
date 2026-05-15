@@ -1,22 +1,22 @@
-import resolve from '@rollup/plugin-node-resolve';
-import commonjs from '@rollup/plugin-commonjs';
-import typescript from '@rollup/plugin-typescript';
-import peerDepsExternal from 'rollup-plugin-peer-deps-external';
-import postcss from 'rollup-plugin-postcss';
-import dts from 'rollup-plugin-dts';
+import resolve from "@rollup/plugin-node-resolve";
+import commonjs from "@rollup/plugin-commonjs";
+import typescript from "@rollup/plugin-typescript";
+import peerDepsExternal from "rollup-plugin-peer-deps-external";
+import postcss from "rollup-plugin-postcss";
+import dts from "rollup-plugin-dts";
 
 export default [
   {
-    input: 'src/components/index.ts',
+    input: "src/components/index.ts",
     output: [
       {
-        file: 'dist/index.js',
-        format: 'cjs',
+        file: "dist/index.js",
+        format: "cjs",
         sourcemap: true,
       },
       {
-        file: 'dist/index.esm.js',
-        format: 'esm',
+        file: "dist/index.esm.js",
+        format: "esm",
         sourcemap: true,
       },
     ],
@@ -25,38 +25,44 @@ export default [
       resolve(),
       commonjs(),
       typescript({
-        tsconfig: './tsconfig.json',
+        tsconfig: "./tsconfig.json",
         declaration: true,
-        declarationDir: 'dist',
+        declarationDir: "dist",
       }),
       postcss({
-        extensions: ['.css'],
+        extensions: [".css"],
         minimize: true,
         inject: false,
-        extract: 'styles.css',
+        extract: "styles.css",
       }),
     ],
-    external: ['react', 'react-dom', 'react-router-dom', 'lucide-react'],
+    external: [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "lucide-react",
+      "@tanstack/react-virtual",
+    ],
   },
   {
-    input: 'src/styles/index.css',
+    input: "src/styles/index.css",
     output: {
-      file: 'dist/styles.css',
+      file: "dist/styles.css",
     },
     plugins: [
       postcss({
-        extensions: ['.css'],
+        extensions: [".css"],
         minimize: false,
         extract: true,
         config: {
-          path: './postcss.config.cjs'
-        }
+          path: "./postcss.config.cjs",
+        },
       }),
     ],
   },
   {
-    input: 'dist/components/index.d.ts',
-    output: [{ file: 'dist/index.d.ts', format: 'esm' }],
+    input: "dist/components/index.d.ts",
+    output: [{ file: "dist/index.d.ts", format: "esm" }],
     plugins: [dts()],
     external: [/\.css$/], // Ignore CSS imports in type definitions
   },
