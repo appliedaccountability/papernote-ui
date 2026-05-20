@@ -2,7 +2,7 @@
 // Auto-detects sections in the page and provides navigation dots in the gutter
 // Can also accept external sections (e.g., from iframe PostMessage)
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 interface Section {
   id: string;
@@ -15,24 +15,18 @@ export interface PageNavigationProps {
   sections?: Section[];
 }
 
-export const PageNavigation: React.FC<PageNavigationProps> = ({ 
-  className = '',
-  sections: externalSections 
+export const PageNavigation: React.FC<PageNavigationProps> = ({
+  className = "",
+  sections: externalSections,
 }) => {
   const [detectedSections, setDetectedSections] = useState<Section[]>([]);
-  const [activeSection, setActiveSection] = useState<string>('');
+  const [activeSection, setActiveSection] = useState<string>("");
 
   // Use external sections if provided, otherwise use detected sections
-  const sections = externalSections && externalSections.length > 0 ? externalSections : detectedSections;
-
-  console.log('🎯 PageNavigation render:', {
-    externalSections: externalSections || 'none',
-    externalSectionsLength: externalSections?.length || 0,
-    detectedSections: detectedSections || 'none',
-    detectedSectionsLength: detectedSections.length,
-    sections: sections || 'none',
-    sectionsLength: sections.length
-  });
+  const sections =
+    externalSections && externalSections.length > 0
+      ? externalSections
+      : detectedSections;
 
   useEffect(() => {
     // Skip auto-detection if external sections prop is provided (even if empty array)
@@ -43,12 +37,15 @@ export const PageNavigation: React.FC<PageNavigationProps> = ({
 
     // Auto-detect sections with IDs in the page
     const detectSections = () => {
-      const elements = document.querySelectorAll('[id^="section-"], [data-section]');
+      const elements = document.querySelectorAll(
+        '[id^="section-"], [data-section]',
+      );
       const detected: Section[] = [];
 
       elements.forEach((el) => {
-        const id = el.id || el.getAttribute('data-section') || '';
-        const label = el.getAttribute('aria-label') || el.getAttribute('data-label') || id;
+        const id = el.id || el.getAttribute("data-section") || "";
+        const label =
+          el.getAttribute("aria-label") || el.getAttribute("data-label") || id;
         if (id) {
           detected.push({ id, label });
         }
@@ -80,7 +77,7 @@ export const PageNavigation: React.FC<PageNavigationProps> = ({
 
     // Scroll spy - listen to the correct scroll container
     const findScrollContainer = () => {
-      const container = document.querySelector('.flex-1.overflow-auto');
+      const container = document.querySelector(".flex-1.overflow-auto");
       return (container as HTMLElement) || null;
     };
 
@@ -101,7 +98,9 @@ export const PageNavigation: React.FC<PageNavigationProps> = ({
       }
 
       for (const section of sections) {
-        const element = document.getElementById(section.id) || document.querySelector(`[data-section="${section.id}"]`);
+        const element =
+          document.getElementById(section.id) ||
+          document.querySelector(`[data-section="${section.id}"]`);
         if (element) {
           const rect = element.getBoundingClientRect();
           const elementTop = rect.top - containerTop;
@@ -118,10 +117,10 @@ export const PageNavigation: React.FC<PageNavigationProps> = ({
 
     const scrollContainer = findScrollContainer();
     if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
+      scrollContainer.addEventListener("scroll", handleScroll);
       // Run once on mount to set initial active section
       handleScroll();
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener("scroll", handleScroll);
     }
 
     return undefined;
@@ -132,30 +131,39 @@ export const PageNavigation: React.FC<PageNavigationProps> = ({
     // Instead, we could send a message back to the iframe
     if (externalSections && externalSections.length > 0) {
       // Find the iframe
-      const iframe = document.querySelector('iframe[title="Conductor Admin"]') as HTMLIFrameElement;
+      const iframe = document.querySelector(
+        'iframe[title="Conductor Admin"]',
+      ) as HTMLIFrameElement;
       if (iframe && iframe.contentWindow) {
         // Send scroll request to iframe
-        iframe.contentWindow.postMessage({
-          type: 'SCROLL_TO_SECTION',
-          sectionId: id
-        }, '*');
+        iframe.contentWindow.postMessage(
+          {
+            type: "SCROLL_TO_SECTION",
+            sectionId: id,
+          },
+          "*",
+        );
       }
       setActiveSection(id);
       return;
     }
 
     // For local sections, scroll normally
-    const element = document.getElementById(id) || document.querySelector(`[data-section="${id}"]`);
+    const element =
+      document.getElementById(id) ||
+      document.querySelector(`[data-section="${id}"]`);
     if (element) {
       // Find the scrollable container
-      const scrollContainer = document.querySelector('.flex-1.overflow-auto') as HTMLElement;
+      const scrollContainer = document.querySelector(
+        ".flex-1.overflow-auto",
+      ) as HTMLElement;
       if (scrollContainer) {
         // Scroll within the container
         const elementTop = element.offsetTop - scrollContainer.offsetTop;
-        scrollContainer.scrollTo({ top: elementTop - 100, behavior: 'smooth' });
+        scrollContainer.scrollTo({ top: elementTop - 100, behavior: "smooth" });
       } else {
         // Fallback to window scroll
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
       setActiveSection(id);
     }
@@ -169,14 +177,14 @@ export const PageNavigation: React.FC<PageNavigationProps> = ({
         {sections.map((section) => (
           <div
             key={section.id}
-            className={`page-nav-dot ${activeSection === section.id ? 'active' : ''}`}
+            className={`page-nav-dot ${activeSection === section.id ? "active" : ""}`}
             role="button"
             tabIndex={0}
             aria-label={section.label}
             title={section.label}
             onClick={() => scrollToSection(section.id)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+              if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 scrollToSection(section.id);
               }
