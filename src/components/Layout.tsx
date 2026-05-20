@@ -1,8 +1,8 @@
 // Layout Component - Complete app layout with sidebar, gutter, and content
 // This enforces the notebook-style page and gutter layout pattern
 
-import React from 'react';
-import { PageNavigation } from './PageNavigation';
+import React from "react";
+import { PageNavigation } from "./PageNavigation";
 
 export interface Section {
   /** Unique identifier for the section */
@@ -79,11 +79,9 @@ export const Layout: React.FC<LayoutProps> = ({
   sidebar,
   children,
   statusBar,
-  className = '',
-  sections
+  className = "",
+  sections,
 }) => {
-  console.log('🏗️ Layout render with sections:', sections);
-  
   return (
     <div className={`h-screen flex flex-col bg-paper-100 ${className}`}>
       {/* Main layout - sidebar, gutter, and content */}
@@ -97,9 +95,7 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
 
         {/* Main content area - scrollable */}
-        <div className="flex-1 overflow-auto">
-          {children}
-        </div>
+        <div className="flex-1 overflow-auto">{children}</div>
       </div>
 
       {/* Status Bar - at bottom (optional) */}
