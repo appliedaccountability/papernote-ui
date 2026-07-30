@@ -7,6 +7,8 @@
 
 A modern React component library with a paper notebook aesthetic - minimal, professional, and expressive. Built with TypeScript, Tailwind CSS, and designed for production use.
 
+Built and maintained by [Applied Accountability Services](https://appliedaccountability.com).
+
 ## 📖 Documentation
 
 **[📚 View Full Documentation →](https://kwhittenberger.github.io/papernote-ui/)**
