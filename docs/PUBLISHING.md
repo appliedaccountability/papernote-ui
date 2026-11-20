@@ -1,3 +1,7 @@
+---
+argus-artifact-id: 01M2HPEJ6MXR3W20RXGMEAMATV
+---
+
 # Publishing Guide for @papernote/ui
 
 This document explains how to publish new versions of the @papernote/ui package to npm.
@@ -6,26 +10,23 @@ This document explains how to publish new versions of the @papernote/ui package 
 
 ### One-Time Setup
 
-1. **Create an npm Access Token**
-   - Go to https://www.npmjs.com/settings/YOUR_USERNAME/tokens
-   - Click "Generate New Token" → "Granular Access Token"
-   - Token settings:
-     - Name: `GitHub Actions - papernote-ui`
-     - Expiration: 90 days (maximum with 2FA)
-     - Packages and scopes: Select `@papernote/ui` with "Read and write" permission
-   - Copy the token (you won't see it again!)
+Publishing uses npm trusted publishing (OIDC): GitHub Actions proves to npm which repository and
+workflow it is running, and no npm token is stored anywhere. The trusted publisher is configured on
+the package's settings page, https://www.npmjs.com/package/@papernote/ui/access, and names:
 
-2. **Add NPM_TOKEN to GitHub Secrets**
-   - Go to https://github.com/kwhittenberger/papernote-ui/settings/secrets/actions
-   - Click "New repository secret"
-   - Name: `NPM_TOKEN`
-   - Value: Paste your npm token
-   - Click "Add secret"
+| Field | Value |
+|---|---|
+| Publisher | GitHub Actions |
+| Organization or user | `appliedaccountability` |
+| Repository | `papernote-ui` |
+| Workflow filename | `npm-publish-tag.yml` |
+| Environment | none |
+| Allowed actions | `npm stage publish` only |
 
-3. **Token Renewal**
-   - Granular tokens expire after 90 days
-   - Set a calendar reminder to renew the token before it expires
-   - Update the GitHub secret with the new token
+The publisher is fixed once created. If the repository moves or the workflow is renamed, delete it
+and add a new one; saving needs the maintainer's security key. The repository moved from
+`kwhittenberger` to `appliedaccountability`, and until the publisher was re-created every publish
+failed with E404.
 
 ## Publishing Methods
 
@@ -54,7 +55,7 @@ This is the easiest and most user-friendly method.
    ```
 
 4. **Create a GitHub Release**
-   - Go to https://github.com/kwhittenberger/papernote-ui/releases/new
+   - Go to https://github.com/appliedaccountability/papernote-ui/releases/new
    - Click "Choose a tag" and select the tag you just pushed (e.g., `v1.0.1`)
    - Title: `v1.0.1` (or whatever version)
    - Description: Write release notes describing what changed
@@ -63,7 +64,7 @@ This is the easiest and most user-friendly method.
 5. **Automated Publishing**
    - The `npm-publish.yml` workflow will automatically trigger
    - It will verify versions match, run type checks, linting, build verification, and publish to npm
-   - Check the Actions tab to monitor progress: https://github.com/kwhittenberger/papernote-ui/actions
+   - Check the Actions tab to monitor progress: https://github.com/appliedaccountability/papernote-ui/actions
 
 ### Option 2: Git Tag
 
@@ -83,11 +84,31 @@ This method is faster but skips the release notes on GitHub.
 3. **Automated Publishing**
    - The `npm-publish-tag.yml` workflow will automatically trigger
    - It includes the same safety checks as the release workflow
-   - Check the Actions tab to monitor: https://github.com/kwhittenberger/papernote-ui/actions
+   - Check the Actions tab to monitor: https://github.com/appliedaccountability/papernote-ui/actions
+
+### Approving a staged release
+
+Both options above stage the release rather than publishing it. The workflow runs
+`npm stage publish`, and the version stays out of the registry until a maintainer approves it with
+2FA. A tag push alone cannot put a release in front of users, which is the point: a compromised
+workflow or GitHub token can stage a version but not ship it. The run ends with an
+"Approve @papernote/ui@x.y.z" notice when staging succeeds.
+
+```bash
+npm login                          # as khittenberger
+npm stage list @papernote/ui       # find the stage id
+npm stage view <stage-id>          # optional: inspect it
+npm stage download <stage-id>      # optional: unpack and look at the tarball
+npm stage approve <stage-id>       # publishes it, under the dist-tag the workflow chose
+npm stage reject <stage-id>        # or throw it away
+```
+
+Approval cannot run in CI; npm requires an interactive login for it.
 
 ### Option 3: Manual Publishing
 
-If you need to publish manually (not recommended for regular releases):
+Not for regular releases. It needs a logged-in maintainer, publishes without provenance, and
+skips every check the workflow runs.
 
 1. **Update version**
    ```bash
@@ -155,24 +176,23 @@ Before publishing a new version:
 
 ## Troubleshooting
 
-### Workflow Fails with "EOTP" Error
+### Workflow fails with E404 on publish
 
-If the workflow fails with an OTP (one-time password) error:
-- This shouldn't happen with automation tokens
-- Verify the `NPM_TOKEN` secret is set correctly
-- Regenerate the token if it expired
+npm answers 404 when it does not recognize the publisher. The trusted publisher on npm must name
+this repository and `npm-publish-tag.yml` exactly; see One-Time Setup. The package.json
+`repository` field must also name `appliedaccountability/papernote-ui`, because npm checks
+provenance against it.
 
-### Workflow Fails with "E401 Unauthorized"
+### Workflow fails with EBADENGINE upgrading npm
 
-- The `NPM_TOKEN` secret is missing or incorrect
-- Go to GitHub Settings → Secrets and verify the token
-- Regenerate the npm token and update the secret
+The workflow pins npm 11 because npm 12 needs Node 22 or later and the job runs Node 20. If the
+Node version is raised, the pin can follow.
 
-### Workflow Fails with "E403 Forbidden"
+### A release moved a dist-tag the wrong way
 
-- The token doesn't have write permission for `@papernote/ui`
-- Create a new token with "Read and write" access
-- Update the GitHub secret
+The "Determine dist-tag" step gives `latest`, or `legacy-vN` for an older major, only to a version
+that is the newest there; anything older gets `legacy-vN.M`. To put a tag back by hand:
+`npm dist-tag add @papernote/ui@<version> <tag>` from a logged-in terminal.
 
 ### Build Fails in Workflow
 
@@ -183,8 +203,8 @@ If the workflow fails with an OTP (one-time password) error:
 ## Monitoring Published Versions
 
 - **npm Registry**: https://www.npmjs.com/package/@papernote/ui
-- **GitHub Releases**: https://github.com/kwhittenberger/papernote-ui/releases
-- **GitHub Actions**: https://github.com/kwhittenberger/papernote-ui/actions
+- **GitHub Releases**: https://github.com/appliedaccountability/papernote-ui/releases
+- **GitHub Actions**: https://github.com/appliedaccountability/papernote-ui/actions
 
 ## Updating Consumer Projects
 
@@ -221,5 +241,5 @@ npm unpublish @papernote/ui@1.0.1
 ## Support
 
 For issues with publishing or the package:
-- GitHub Issues: https://github.com/kwhittenberger/papernote-ui/issues
+- GitHub Issues: https://github.com/appliedaccountability/papernote-ui/issues
 - npm Support: https://www.npmjs.com/support
