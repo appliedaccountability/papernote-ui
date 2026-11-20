@@ -3,7 +3,7 @@ name: Publish to npm (on version tag)
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   publish:
@@ -19,8 +19,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Upgrade npm for OIDC support
         run: |
@@ -61,8 +61,24 @@ jobs:
           fi
           echo "Build output verified successfully"
 
+      - name: Determine dist-tag
+        id: disttag
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          MAJOR=$(echo "$PACKAGE_VERSION" | cut -d. -f1)
+          # Query the current "latest" on npm (returns "" if the package has never been published).
+          LATEST=$(npm view @papernote/ui version 2>/dev/null || echo "")
+          LATEST_MAJOR=$(echo "$LATEST" | cut -d. -f1)
+          if [ -n "$LATEST_MAJOR" ] && [ "$MAJOR" -lt "$LATEST_MAJOR" ]; then
+            # Publishing a patch to an older major — don't move the "latest" tag.
+            echo "tag=legacy-v${MAJOR}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Using dist-tag: $(cat "$GITHUB_OUTPUT" | grep tag=)"
+
       - name: Publish to npm
-        run: npm publish --access public --provenance
+        run: npm publish --access public --provenance --tag ${{ steps.disttag.outputs.tag }}
         # Uses OIDC token automatically via Trusted Publishing
         # No NODE_AUTH_TOKEN needed when package is configured as trusted publisher on npmjs.com
 
