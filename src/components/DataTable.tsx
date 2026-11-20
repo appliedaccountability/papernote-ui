@@ -116,6 +116,20 @@ export type ExpansionMode = "edit" | "details" | string; // string allows 'addRe
 /**
  * Configuration for different expansion modes
  */
+/**
+ * Whether a click on a row means "open this row", rather than operating a control inside it or
+ * selecting its text. The selection checkbox and the expand chevron sit inside the row and their
+ * clicks reach it, so without this a single-click trigger would open the editor on every select.
+ */
+export function isRowClickForEdit(e: React.MouseEvent): boolean {
+  const target = e.target as HTMLElement | null;
+  if (target?.closest('a, button, input, select, textarea, label, [role="button"], [role="checkbox"]')) {
+    return false;
+  }
+  const selection = typeof window !== "undefined" ? window.getSelection?.() : null;
+  return !(selection && selection.toString().length > 0);
+}
+
 export interface ExpandedRowConfig<T> {
   /** Edit mode - inline editing of the record */
   edit?: {
@@ -125,6 +139,12 @@ export interface ExpandedRowConfig<T> {
       onCancel: () => void,
     ) => React.ReactNode;
     triggerOnDoubleClick?: boolean; // Default: true
+    /**
+     * Open the editor on a single click of the row. Clicks on a control inside the row (the
+     * selection checkbox, the expand chevron, a link, a button, a field) never open it, and a
+     * click on the row already being edited does not close it. Default: false.
+     */
+    triggerOnClick?: boolean;
     menuLabel?: string; // Default: 'Edit'
     menuIcon?: React.ComponentType<any>;
   };
@@ -1561,7 +1581,15 @@ export default function DataTable<T extends BaseDataItem = BaseDataItem>({
             className={`table-row-stable ${onRowDoubleClick || onRowClick || onEdit || expandedRowConfig?.edit || expandedRowConfig?.details || expandedRowConfig?.addRelated?.length || expandedRowConfig?.manageRelated?.length ? "cursor-pointer" : ""} ${isSelected ? "bg-accent-50 border-l-2 border-accent-500" : hoverClass || rowBgClass} ${borderClass} ${isKeyboardFocused ? "ring-2 ring-inset ring-accent-400" : ""}`}
             onMouseEnter={() => !disableHover && setHoveredRowKey(rowKey)}
             onMouseLeave={() => !disableHover && setHoveredRowKey(null)}
-            onClick={() => onRowClick?.(item)}
+            onClick={(e) => {
+              if (expandedRowConfig?.edit?.triggerOnClick && isRowClickForEdit(e)) {
+                // Open, never toggle: a stray click on the open row must not discard its edits.
+                if (!(expansionState?.rowKey === rowKey && expansionState?.mode === "edit")) {
+                  handleExpansionWithMode(rowKey, "edit");
+                }
+              }
+              onRowClick?.(item);
+            }}
             onContextMenu={(e) => {
               if (enableContextMenu && allActions.length > 0) {
                 e.preventDefault();
@@ -1618,7 +1646,9 @@ export default function DataTable<T extends BaseDataItem = BaseDataItem>({
             title={
               onEdit
                 ? "Double-click to edit"
-                : expandedRowConfig?.edit
+                : expandedRowConfig?.edit?.triggerOnClick
+                  ? "Click to edit"
+                  : expandedRowConfig?.edit
                   ? "Double-click to edit inline"
                   : expandedRowConfig?.details
                     ? "Double-click to view details"
