@@ -26,7 +26,7 @@ jobs:
         run: |
           echo "Current npm version:"
           npm --version
-          npm install -g npm@^11.5.1
+          npm install -g npm@^11.21.0
           echo "Updated npm version:"
           npm --version
 
@@ -91,20 +91,14 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "Using dist-tag: ${TAG}"
 
-      - name: Publish to npm
-        run: npm publish --access public --provenance --tag ${{ steps.disttag.outputs.tag }}
-        # Uses OIDC token automatically via Trusted Publishing
-        # No NODE_AUTH_TOKEN needed when package is configured as trusted publisher on npmjs.com
+      - name: Stage for publishing
+        # Staged, not published. The version goes public only when a maintainer approves it on
+        # npm with 2FA: `npm stage list @papernote/ui`, then `npm stage approve <stage-id>`, or the
+        # package's staged versions on npmjs.com. A tag push alone can no longer put a release in
+        # front of users. Trusted publishing (OIDC) authenticates this step; there is no token.
+        run: npm stage publish --access public --provenance --tag ${{ steps.disttag.outputs.tag }}
 
-      - name: Verify publication
+      - name: Awaiting approval
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          echo "Waiting 10 seconds for npm registry to update..."
-          sleep 10
-          PUBLISHED_VERSION=$(npm view @papernote/ui version)
-          echo "Published version on npm: $PUBLISHED_VERSION"
-          if [ "$PUBLISHED_VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "Warning: Published version check failed, but this may be due to registry propagation delay"
-          else
-            echo "✓ Successfully published @papernote/ui@$PUBLISHED_VERSION"
-          fi
+          echo "::notice title=Approve @papernote/ui@${PACKAGE_VERSION}::Staged under dist-tag ${{ steps.disttag.outputs.tag }}. It is not public until approved on npm: npm stage list @papernote/ui, then npm stage approve <stage-id>."
