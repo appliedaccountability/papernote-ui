@@ -65,17 +65,31 @@ jobs:
         id: disttag
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          MAJOR=$(echo "$PACKAGE_VERSION" | cut -d. -f1)
-          # Query the current "latest" on npm (returns "" if the package has never been published).
-          LATEST=$(npm view @papernote/ui version 2>/dev/null || echo "")
-          LATEST_MAJOR=$(echo "$LATEST" | cut -d. -f1)
-          if [ -n "$LATEST_MAJOR" ] && [ "$MAJOR" -lt "$LATEST_MAJOR" ]; then
-            # Publishing a patch to an older major — don't move the "latest" tag.
-            echo "tag=legacy-v${MAJOR}" >> "$GITHUB_OUTPUT"
+          MAJOR=${PACKAGE_VERSION%%.*}
+          MINOR=$(echo "$PACKAGE_VERSION" | cut -d. -f2)
+          # The current "latest" ("" if the package has never been published).
+          LATEST=$(npm view @papernote/ui dist-tags.latest 2>/dev/null || echo "")
+          LATEST_MAJOR=${LATEST%%.*}
+          # newer A B: true when version A is greater than B.
+          newer() { node -e 'const p=v=>v.split(/[.-]/).slice(0,3).map(Number);const a=p(process.argv[1]),b=p(process.argv[2]);for(let i=0;i<3;i++){if(a[i]!==b[i])process.exit(a[i]>b[i]?0:1)}process.exit(1)' "$1" "$2"; }
+          if [ -z "$LATEST" ] || newer "$PACKAGE_VERSION" "$LATEST"; then
+            TAG="latest"
+          elif [ "$MAJOR" -lt "$LATEST_MAJOR" ]; then
+            # A patch to an older major. It becomes legacy-vN only if it is the newest of that
+            # major; a patch to an older minor line (1.10.x while legacy-v1 is 1.14.1) gets a
+            # line tag instead, so legacy-v1 never moves backwards.
+            LEGACY=$(npm view @papernote/ui "dist-tags.legacy-v${MAJOR}" 2>/dev/null || echo "")
+            if [ -z "$LEGACY" ] || newer "$PACKAGE_VERSION" "$LEGACY"; then
+              TAG="legacy-v${MAJOR}"
+            else
+              TAG="legacy-v${MAJOR}.${MINOR}"
+            fi
           else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            # An older line of the current major (2.0.x while latest is 2.1.3): never "latest".
+            TAG="legacy-v${MAJOR}.${MINOR}"
           fi
-          echo "Using dist-tag: $(cat "$GITHUB_OUTPUT" | grep tag=)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using dist-tag: ${TAG}"
 
       - name: Publish to npm
         run: npm publish --access public --provenance --tag ${{ steps.disttag.outputs.tag }}
